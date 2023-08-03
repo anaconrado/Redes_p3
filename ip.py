@@ -1,4 +1,5 @@
-from iputils import *
+import ipaddress
+from grader.iputils import *
 
 
 class IP:
@@ -28,11 +29,17 @@ class IP:
             self.enlace.enviar(datagrama, next_hop)
 
     def _next_hop(self, dest_addr):
-        # TODO: Use a tabela de encaminhamento para determinar o próximo salto
-        # (next_hop) a partir do endereço de destino do datagrama (dest_addr).
-        # Retorne o next_hop para o dest_addr fornecido.
-        pass
 
+        ip_address = ipaddress.ip_address(dest_addr)
+
+        for cird, next_hop in self.tabela:
+            ip_network = ipaddress.ip_network(cird)
+
+            if ip_address in ip_network:
+                return next_hop
+        
+        return None
+    
     def definir_endereco_host(self, meu_endereco):
         """
         Define qual o endereço IPv4 (string no formato x.y.z.w) deste host.
@@ -51,7 +58,7 @@ class IP:
         """
         # TODO: Guarde a tabela de encaminhamento. Se julgar conveniente,
         # converta-a em uma estrutura de dados mais eficiente.
-        pass
+        self.tabela = tabela
 
     def registrar_recebedor(self, callback):
         """
