@@ -3,6 +3,9 @@ from grader.iputils import *
 
 
 class IP:
+
+    cur_identification = 0
+
     def __init__(self, enlace):
         """
         Inicia a camada de rede. Recebe como argumento uma implementação
@@ -74,4 +77,48 @@ class IP:
         next_hop = self._next_hop(dest_addr)
         # TODO: Assumindo que a camada superior é o protocolo TCP, monte o
         # datagrama com o cabeçalho IP, contendo como payload o segmento.
+
+        if next_hop is None:
+            return
+        
+        ip_address = ipaddress.IPv4Address(dest_addr)
+
+        version = 4          
+        # tamanho do header (20) dividido por quantidade de bits do ihl (4)
+        ihl = 5              
+        header_length = ihl * 4
+        total_length = header_length + len(segmento)
+        # Incrementando o identificador e tirando o modulo de 65536 para que não passe de 16 bits
+        IP.cur_identification = (IP.cur_identification + 1) % 65536
+        flags = 0
+        fragment_offset = 0
+        # ttl = 64 padrão linux
+        ttl = 64             
+        # protocolo = 6 padrão tcp
+        protocol = 6          
+        meu_endereco_ip = ipaddress.IPv4Address(self.meu_endereco)
+
+        # Create the IP header (20 bytes for the IPv4 header without options)
+        ip_header = (
+            (version << 4) + ihl,
+            0,                     
+            total_length,
+            IP.cur_identification,                     
+            0,               
+            ttl,
+            protocol,
+            0,                     
+            int(meu_endereco_ip),  
+            int(ip_address),           
+        )
+
+        packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header)
+
+        checksum = calc_checksum(packed_ip_header)
+        ip_header = ip_header[:7] + (checksum,) + ip_header[8:]
+
+        packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header)
+
+        datagrama = packed_ip_header + segmento
+
         self.enlace.enviar(datagrama, next_hop)
