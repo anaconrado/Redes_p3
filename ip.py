@@ -28,8 +28,46 @@ class IP:
         else:
             # atua como roteador
             next_hop = self._next_hop(dst_addr)
-            # TODO: Trate corretamente o campo TTL do datagrama
+
+            # decrementando o ttl
+            ttl = ttl - 1
+
+            if ttl <= 0:
+                return
+            
+            version = 4          
+            ihl = 5        
+            total_length = ihl * 4 + len(payload)   
+            my_src_addr = ipaddress.IPv4Address(src_addr)
+            my_dst_addr = ipaddress.IPv4Address(dst_addr)
+
+            ip_header_valores = (
+                (version << 4) + ihl,
+                0,
+                total_length,
+                identification,                     
+                0,               
+                ttl,
+                proto,
+                0,                     
+                int(my_src_addr),  
+                int(my_dst_addr),       
+            )
+
+            packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
+
+            # recaluclando o checksum
+            checksum = calc_checksum(packed_ip_header)
+
+            ip_header_valores = ip_header_valores[:7] + (checksum,) + ip_header_valores[8:]
+
+            packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
+
+            datagrama = packed_ip_header + payload
+
             self.enlace.enviar(datagrama, next_hop)
+
+            
 
     def _next_hop(self, dest_addr):
 
