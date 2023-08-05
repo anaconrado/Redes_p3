@@ -34,14 +34,18 @@ class IP:
     def _next_hop(self, dest_addr):
 
         ip_address = ipaddress.ip_address(dest_addr)
+        max_n = None
 
         for cird, next_hop in self.tabela:
             ip_network = ipaddress.ip_network(cird)
 
             if ip_address in ip_network:
-                return next_hop
-        
-        return None
+                if max_n is None or ip_network.prefixlen > max_n[0].prefixlen:
+                    max_n = (ip_network, next_hop)
+
+        if max_n:
+            return max_n[1]
+
     
     def definir_endereco_host(self, meu_endereco):
         """
@@ -59,8 +63,6 @@ class IP:
         Onde os CIDR são fornecidos no formato 'x.y.z.w/n', e os
         next_hop são fornecidos no formato 'x.y.z.w'.
         """
-        # TODO: Guarde a tabela de encaminhamento. Se julgar conveniente,
-        # converta-a em uma estrutura de dados mais eficiente.
         self.tabela = tabela
 
     def registrar_recebedor(self, callback):
@@ -75,8 +77,6 @@ class IP:
         (string no formato x.y.z.w).
         """
         next_hop = self._next_hop(dest_addr)
-        # TODO: Assumindo que a camada superior é o protocolo TCP, monte o
-        # datagrama com o cabeçalho IP, contendo como payload o segmento.
 
         if next_hop is None:
             return
