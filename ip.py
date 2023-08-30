@@ -27,45 +27,106 @@ class IP:
                 self.callback(src_addr, dst_addr, payload)
         else:
             # atua como roteador
-            next_hop = self._next_hop(dst_addr)
 
             # decrementando o ttl
             ttl = ttl - 1
-
-            if ttl <= 0:
-                return
-            
             version = 4          
             ihl = 5        
             total_length = ihl * 4 + len(payload)   
             my_src_addr = ipaddress.IPv4Address(src_addr)
             my_dst_addr = ipaddress.IPv4Address(dst_addr)
 
-            ip_header_valores = (
-                (version << 4) + ihl,
-                0,
-                total_length,
-                identification,                     
-                0,               
-                ttl,
-                proto,
-                0,                     
-                int(my_src_addr),  
-                int(my_dst_addr),       
-            )
+            if ttl == 0:
+                
+                prev_hop = self._next_hop(src_addr)
 
-            packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
+                # Reformulando o header IP
+                protocolo = 1
+                my_src_addr = ipaddress.IPv4Address(self.meu_endereco)
+                my_dst_addr = ipaddress.IPv4Address(src_addr)
 
-            # recaluclando o checksum
-            checksum = calc_checksum(packed_ip_header)
+                ip_header_valores = (
+                    (version << 4) + ihl,
+                    (dscp << 2) + ecn,
+                    48,
+                    identification,                     
+                    (flags << 13) + frag_offset,               
+                    64,
+                    protocolo,
+                    0,                     
+                    int(my_src_addr),  
+                    int(my_dst_addr),       
+                )
+                packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
 
-            ip_header_valores = ip_header_valores[:7] + (checksum,) + ip_header_valores[8:]
+                # recalculando o checksum
+                ip_checksum = calc_checksum(packed_ip_header)
 
-            packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
+                ip_header_valores = ip_header_valores[:7] + (ip_checksum,) + ip_header_valores[8:]
 
-            datagrama = packed_ip_header + payload
+                packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
 
-            self.enlace.enviar(datagrama, next_hop)
+                # Formulando o cabeçalho ICMP
+                type = 11  
+                code = 0   
+
+                icmp_header_valores = (
+                    type,
+                    code,
+                    0, 
+                    0,
+                    0,                                     
+                )
+
+                packed_icmp_header = struct.pack('!BBHHH', *icmp_header_valores)  
+
+                # calculando o checksum do ICMP
+                icmp_checksum = calc_checksum(packed_icmp_header + packed_ip_header)
+                icmp_header_valores = (
+                    type, 
+                    code, 
+                    icmp_checksum, 
+                    0, 
+                    0, 
+                )
+                #icmp_header_valores = icmp_header_valores[:2] + (icmp_checksum,) + icmp_header_valores[3:]
+
+                # Repack the ICMP header with the correct checksum
+                icmp_header = struct.pack('!BBHHH', *icmp_header_valores)
+
+                datagrama = packed_ip_header + icmp_header + datagrama[:28]
+
+                self.enlace.enviar(datagrama, prev_hop)
+                return
+
+            else:       
+                next_hop = self._next_hop(dst_addr)
+
+                ip_header_valores = (
+                    (version << 4) + ihl,
+                    0,
+                    total_length,
+                    identification,                     
+                    0,               
+                    ttl,
+                    proto,
+                    0,                     
+                    int(my_src_addr),  
+                    int(my_dst_addr),       
+                )
+
+                packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
+
+                # recaluclando o checksum
+                checksum = calc_checksum(packed_ip_header)
+
+                ip_header_valores = ip_header_valores[:7] + (checksum,) + ip_header_valores[8:]
+
+                packed_ip_header = struct.pack("!BBHHHBBHII", *ip_header_valores)
+
+                datagrama = packed_ip_header + payload
+
+                self.enlace.enviar(datagrama, next_hop)
 
             
 
